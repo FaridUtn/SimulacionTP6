@@ -6,20 +6,22 @@ import (
 	"math/rand"
 )
 
-const NH = 1
-const ND = 1
+const NH = 2
+const ND = 5
 const sueldos = 25000
 const hornosCosto = 20000
 
 func main() {
 	var T float64 = 0
 	var TPLL float64 = 0
-	var TF float64 = 14400000
+	var TF float64 = 72000000
 	var tiempoComprometidoDelivery = new([ND]float64)[0:ND]
 	var tiempoComprometidoHorno = new([NH]float64)[0:NH]
 	var STO = new([NH]float64)[0:NH]
-	var STODelivery = new([NH]float64)[0:NH]
-	var STE = new([NH]float64)[0:NH]
+	var STODelivery = new([ND]float64)[0:ND]
+	var STEH float64 = 0
+	var STED float64 = 0
+	var contador float64 = 0
 	var cantidadPedidos float64 = 0
 	var cantidadPedidosGratis int = 0
 	var precioPedidosGratis int = 0
@@ -42,15 +44,22 @@ func main() {
 		if T >= menorTC {
 			STO[i] = STO[i] + (T - menorTC)
 			tiempoComprometidoHorno[i] = T + TAHorno
-			if T >= menorTcDelivery {
-				STODelivery[j] = STODelivery[j] + (T - menorTcDelivery)
+			if (T + TAHorno) >= menorTcDelivery {
+				STODelivery[j] = STODelivery[j] + ((T + TAHorno) - menorTcDelivery)
 				tiempoComprometidoDelivery[j] = T + TAHorno + TA
 			} else {
+				STED = STED + (menorTcDelivery - (T + TAHorno))
+				contador = contador + (menorTcDelivery - (T + TAHorno))
+				if (menorTcDelivery - (T + TAHorno)) > 20 {
+					cantidadPedidosGratis++
+					precioPedidosGratis = precioPedidosGratis + precioPedido
+				}
 				tiempoComprometidoDelivery[j] = menorTcDelivery + TAHorno + TA
 			}
 		} else {
-			STE[i] = STE[i] + (menorTC - T) + TAHorno
-			if (menorTC - T) > 15 {
+			STEH = STEH + (menorTC - T) + TAHorno
+			contador = contador + (menorTC - T)
+			if (menorTC - T) > 20 {
 				cantidadPedidosGratis++
 				precioPedidosGratis = precioPedidosGratis + precioPedido
 			}
@@ -63,39 +72,43 @@ func main() {
 		}
 	}
 
-	CalculateResults(STO, STODelivery, T, cantidadPedidos, precioPedidosGratis, beneficios)
+	CalculateResults(STO, STODelivery, STEH, STED, T, cantidadPedidos, precioPedidosGratis, beneficios, contador)
 
 }
 
-func CalculateResults(STO []float64, STODelivery []float64, T float64, cantidadPedidos float64, precioPedidosGratis int,
-	beneficios int) {
+func CalculateResults(STO []float64, STODelivery []float64, STEH float64, STED float64, T float64, cantidadPedidos float64, precioPedidosGratis int,
+	beneficios int, contador float64) {
 	fmt.Println("Porcentaje tiempo ocioso de cada horno:")
 	//Porcentaje tiempo ocioso de cada horno
 	for i, t := range STO {
-		fmt.Println("PTO Horno %+v: %+v", i+1, t/T)
+		fmt.Println(fmt.Sprintf("PTO Horno %d: %f", i+1, t/T*100))
 	}
 
 	fmt.Println("Porcentaje tiempo ocioso de cada delivery:")
 	//Porcentaje tiempo ocioso de cada delivery
 	for i, t := range STODelivery {
-		fmt.Println("PTO Delivery %+v: %+v", i+1, t/T)
+		fmt.Println(fmt.Sprintf("PTO Delivery %d: %f", i+1, t/T*100))
 	}
 
-	//Promedio de tiempo de espera de pedido
+	//Promedio de tiempo de espera de pedido por horno
 	fmt.Println("Promedio de tiempo de espera de pedido:")
-	for i, t := range STODelivery {
-		fmt.Println("PTO Delivery %+v: %+v", i+1, t/cantidadPedidos)
-	}
+	fmt.Println(fmt.Sprintf("STEH: %f", STEH/cantidadPedidos))
+
+	//Promedio de tiempo de espera de pedido por delivery
+	fmt.Println("Promedio de tiempo de espera de pedido:")
+	fmt.Println(fmt.Sprintf("STED: %f", STED/cantidadPedidos))
 
 	//Promedio Pérdida Mensual por pedidos gratis
-	fmt.Println("Promedio Pérdida Mensual por pedidos gratis: %+v", precioPedidosGratis/333)
+	fmt.Println(fmt.Sprintf("Promedio Pérdida Mensual por pedidos gratis: %d", precioPedidosGratis/1666))
 
 	//Costo de sueldos y hornos mensual
-	fmt.Println("Costo de sueldos mensuales: %+v", ND*sueldos)
-	fmt.Println("Costo de hornos mensuales: %+v", NH*hornosCosto)
+	fmt.Println(fmt.Sprintf("Costo de sueldos mensuales: %d", ND*sueldos))
+	fmt.Println(fmt.Sprintf("Costo de hornos mensuales: %d", NH*hornosCosto))
 
 	//Beneficios Mensuales
-	fmt.Println("Beneficios Mensuales: %+v", (beneficios-precioPedidosGratis)/333)
+	fmt.Println(fmt.Sprintf("Beneficios Mensuales: %d", ((beneficios-precioPedidosGratis)/1666)-ND*sueldos-NH*hornosCosto))
+
+	fmt.Println(fmt.Sprintf("Promedio tiempo espera: %f", contador/cantidadPedidos))
 }
 
 func GetPrecio(categoria int) int {
@@ -172,11 +185,21 @@ func GetMenorTC(tc []float64) (float64, int) {
 
 func GetIA() float64 {
 	x := rand.Float64()
-	return (-3.2109 * math.Log(1/x-1)) + 8.14
+	result := (-3.2109 * math.Log(1/x-1)) + 8.14
+	if result < 0 {
+		return GetIA() / 1.3
+	} else {
+		return result / 1.3
+	}
 
 }
 
 func GetTA() float64 {
 	x := rand.Float64()
-	return -3.4753*math.Log(-math.Log(x)) + 9.1582
+	result := -3.4753*math.Log(-math.Log(x)) + 9.1582
+	if result < 0 {
+		return 2 * GetTA()
+	} else {
+		return 2 * result
+	}
 }
